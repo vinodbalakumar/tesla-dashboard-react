@@ -27,7 +27,7 @@ button:disabled { cursor: wait; opacity: 0.64; }
   padding: 42px 20px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.78), rgba(246,246,244,0.95)),
-    url("/web/tesla-style-car.png") center 68% / min(980px, 118vw) auto no-repeat;
+    url("/tesla/tesla-style-car.png") center 68% / min(980px, 118vw) auto no-repeat;
 }
 
 .login-panel {

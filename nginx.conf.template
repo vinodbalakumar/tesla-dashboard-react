@@ -9,12 +9,12 @@ server {
     try_files /index.html =404;
   }
 
-  location = /web {
-    return 301 /web/;
+  location = /tesla {
+    return 301 /tesla/;
   }
 
-  location /web/ {
-    try_files $uri $uri/ /web/index.html;
+  location /tesla/ {
+    try_files $uri $uri/ /tesla/index.html;
   }
 
   location /auth/ {
