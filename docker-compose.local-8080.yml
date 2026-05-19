@@ -1,0 +1,34 @@
+services:
+  backend:
+    build:
+      context: ../springbootrestdemo/employee-portal
+      dockerfile: Dockerfile
+    image: employee-portal-backend:latest
+    container_name: employee-portal-backend
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 3306
+      DB_NAME: test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/test
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      TESLA_PROXY_BASE: https://host.docker.internal:4443
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8080"
+
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: employee-portal-webapp:latest
+    container_name: employee-portal-webapp
+    environment:
+      API_UPSTREAM: http://backend:8080
+    depends_on:
+      - backend
+    ports:
+      - "8080:8080"

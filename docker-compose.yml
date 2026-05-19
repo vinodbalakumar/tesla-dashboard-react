@@ -1,0 +1,12 @@
+services:
+  webapp:
+    build:
+      context: .
+    image: employee-portal-webapp:latest
+    container_name: employee-portal-webapp
+    environment:
+      API_UPSTREAM: https://vinodbalakumar.com
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3000:8080"
