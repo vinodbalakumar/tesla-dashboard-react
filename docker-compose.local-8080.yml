@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     image: employee-portal-backend:latest
     container_name: employee-portal-backend
+    restart: unless-stopped
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 3306
@@ -26,6 +27,7 @@ services:
       dockerfile: Dockerfile
     image: employee-portal-webapp:latest
     container_name: employee-portal-webapp
+    restart: unless-stopped
     environment:
       API_UPSTREAM: http://backend:8080
     depends_on:
