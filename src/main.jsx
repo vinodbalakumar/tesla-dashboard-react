@@ -15,7 +15,7 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import { fetchStatus, fetchUser, fetchVehicle, login, sendCommand } from "./api";
+import { fetchMe, fetchStatus, fetchVehicle, login, sendCommand } from "./api";
 import "./styles.css";
 
 const commands = [
@@ -33,6 +33,10 @@ const commands = [
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem("teslaToken") || "");
   const [username, setUsername] = useState(() => localStorage.getItem("teslaUsername") || "");
+  const [waitingForSharity, setWaitingForSharity] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return !localStorage.getItem("teslaToken") && params.get("sharityAuth") === "1";
+  });
   const [vehicle, setVehicle] = useState(null);
   const [vehicleStatus, setVehicleStatus] = useState({});
   const [profile, setProfile] = useState(null);
@@ -43,6 +47,54 @@ function App() {
   const [customCommand, setCustomCommand] = useState("");
   const [showProfile, setShowProfile] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+
+  useEffect(() => {
+    function receiveSharityAuth(event) {
+      if (event.data?.type !== "SHARITY_AUTH" || !event.data.accessToken) return;
+      const currentToken = localStorage.getItem("teslaToken") || localStorage.getItem("sharityAccessToken");
+      const isDuplicateToken = currentToken === event.data.accessToken;
+      const nextUsername = event.data.user?.username || event.data.user?.email || "Sharity user";
+      localStorage.setItem("teslaToken", event.data.accessToken);
+      localStorage.setItem("sharityAccessToken", event.data.accessToken);
+      if (event.data.refreshToken) {
+        localStorage.setItem("sharityRefreshToken", event.data.refreshToken);
+      }
+      localStorage.setItem("teslaUsername", nextUsername);
+      setToken(event.data.accessToken);
+      setUsername(nextUsername);
+      setProfile(event.data.user || null);
+      setWaitingForSharity(false);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      if (!isDuplicateToken) {
+        pushActivity("Sharity sign in", "Session received from Sharity");
+      }
+    }
+
+    window.addEventListener("message", receiveSharityAuth);
+    return () => window.removeEventListener("message", receiveSharityAuth);
+  }, []);
+
+  useEffect(() => {
+    if (!waitingForSharity || token) return;
+
+    const requestAuth = () => {
+      if (window.opener) {
+        window.opener.postMessage({ type: "TESLA_READY_FOR_SHARITY_AUTH" }, "*");
+      }
+    };
+
+    requestAuth();
+    const interval = window.setInterval(requestAuth, 600);
+    const timeout = window.setTimeout(() => {
+      setWaitingForSharity(false);
+      window.clearInterval(interval);
+    }, 8000);
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [waitingForSharity, token]);
 
   function normalizeLockState(value) {
     if (value === true) return "Locked";
@@ -75,12 +127,17 @@ function App() {
   useEffect(() => {
     if (!token) return;
     refreshAll();
-    if (username) {
-      fetchUser(username)
-        .then(setProfile)
-        .catch((error) => pushActivity("Profile", error.message, true));
-    }
-  }, [token, username]);
+    fetchMe()
+      .then((data) => {
+        setProfile(data);
+        const nextUsername = data?.username || data?.email || username;
+        if (nextUsername) {
+          localStorage.setItem("teslaUsername", nextUsername);
+          setUsername(nextUsername);
+        }
+      })
+      .catch((error) => pushActivity("Profile", error.message, true));
+  }, [token]);
 
   function pick(source, keys, fallback = "Not available") {
     if (!source || typeof source !== "object") return fallback;
@@ -205,6 +262,8 @@ function App() {
   function logout() {
     localStorage.removeItem("teslaToken");
     localStorage.removeItem("teslaUsername");
+    localStorage.removeItem("sharityAccessToken");
+    localStorage.removeItem("sharityRefreshToken");
     setToken("");
     setUsername("");
     setVehicle(null);
@@ -217,6 +276,10 @@ function App() {
   const liveState = formatValue(pick(vehicleStatus, ["state", "vehicle_state", "vehicle"], pick(vehicle, ["state"], "Online")));
   const vin = pick(vehicle, ["vin"], "7SAYGDEE1RF129635");
   const modelName = pick(vehicle, ["display_name", "displayName", "model", "vehicle_name"], "2024 Model Y");
+
+  if (!token && waitingForSharity) {
+    return <SharityConnecting />;
+  }
 
   if (!token) {
     return <Login busy={busy === "login"} activity={activity} onSubmit={handleLogin} />;
@@ -368,6 +431,19 @@ function App() {
         <span>Product by Vinod Balakumar  || © 2026 Vinod Balakumar</span>
       </footer>
     </div>
+  );
+}
+
+function SharityConnecting() {
+  return (
+    <main className="login-screen">
+      <section className="login-panel sharity-connecting">
+        <div className="brand">Vinod Tesla</div>
+        <h1>Opening dashboard</h1>
+        <p>Using your Sharity session.</p>
+        <div className="connecting-bar" />
+      </section>
+    </main>
   );
 }
 
