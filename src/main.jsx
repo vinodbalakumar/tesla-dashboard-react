@@ -15,24 +15,28 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import { fetchStatus, fetchUser, fetchVehicle, login, sendCommand } from "./api";
+import { TESLA_API_PATH, fetchMe, fetchStatus, fetchVehicle, login, sendCommand } from "./api";
 import "./styles.css";
 
 const commands = [
-  { label: "Wake", subtitle: "Start session", path: "/api/tesla/wake", icon: Zap, group: "Quick Controls", primary: true },
-  { label: "Flash", subtitle: "Lights", path: "/api/tesla/flash-lights", icon: Lightbulb, group: "Quick Controls" },
-  { label: "Honk", subtitle: "Horn", path: "/api/tesla/honk", icon: Radio, group: "Quick Controls" },
-  { label: "Frunk", subtitle: "Open front", path: "/api/tesla/frunk/open", icon: CarFront, group: "Access" },
-  { label: "Trunk", subtitle: "Open rear", path: "/api/tesla/trunk/open", icon: CarFront, group: "Access" },
-  { label: "Climate", subtitle: "Start", path: "/api/tesla/climate/start", icon: Fan, group: "Access" },
-  { label: "Climate Off", subtitle: "Stop", path: "/api/tesla/climate/stop", icon: Snowflake, group: "Access", danger: true },
-  { label: "Start", subtitle: "Charging", path: "/api/tesla/start/charging", icon: BatteryCharging, group: "Charging", primary: true },
-  { label: "Stop", subtitle: "Charging", path: "/api/tesla/stop/charging", icon: BatteryCharging, group: "Charging", danger: true },
+  { label: "Wake", subtitle: "Start session", path: `${TESLA_API_PATH}/wake`, icon: Zap, group: "Quick Controls", primary: true },
+  { label: "Flash", subtitle: "Lights", path: `${TESLA_API_PATH}/flash-lights`, icon: Lightbulb, group: "Quick Controls" },
+  { label: "Honk", subtitle: "Horn", path: `${TESLA_API_PATH}/honk`, icon: Radio, group: "Quick Controls" },
+  { label: "Frunk", subtitle: "Open front", path: `${TESLA_API_PATH}/frunk/open`, icon: CarFront, group: "Access" },
+  { label: "Trunk", subtitle: "Open rear", path: `${TESLA_API_PATH}/trunk/open`, icon: CarFront, group: "Access" },
+  { label: "Climate", subtitle: "Start", path: `${TESLA_API_PATH}/climate/start`, icon: Fan, group: "Access" },
+  { label: "Climate Off", subtitle: "Stop", path: `${TESLA_API_PATH}/climate/stop`, icon: Snowflake, group: "Access", danger: true },
+  { label: "Start", subtitle: "Charging", path: `${TESLA_API_PATH}/start/charging`, icon: BatteryCharging, group: "Charging", primary: true },
+  { label: "Stop", subtitle: "Charging", path: `${TESLA_API_PATH}/stop/charging`, icon: BatteryCharging, group: "Charging", danger: true },
 ];
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem("teslaToken") || "");
   const [username, setUsername] = useState(() => localStorage.getItem("teslaUsername") || "");
+  const [waitingForSharity, setWaitingForSharity] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return !localStorage.getItem("teslaToken") && params.get("sharityAuth") === "1";
+  });
   const [vehicle, setVehicle] = useState(null);
   const [vehicleStatus, setVehicleStatus] = useState({});
   const [profile, setProfile] = useState(null);
@@ -43,6 +47,54 @@ function App() {
   const [customCommand, setCustomCommand] = useState("");
   const [showProfile, setShowProfile] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+
+  useEffect(() => {
+    function receiveSharityAuth(event) {
+      if (event.data?.type !== "SHARITY_AUTH" || !event.data.accessToken) return;
+      const currentToken = localStorage.getItem("teslaToken") || localStorage.getItem("sharityAccessToken");
+      const isDuplicateToken = currentToken === event.data.accessToken;
+      const nextUsername = event.data.user?.username || event.data.user?.email || "Sharity user";
+      localStorage.setItem("teslaToken", event.data.accessToken);
+      localStorage.setItem("sharityAccessToken", event.data.accessToken);
+      if (event.data.refreshToken) {
+        localStorage.setItem("sharityRefreshToken", event.data.refreshToken);
+      }
+      localStorage.setItem("teslaUsername", nextUsername);
+      setToken(event.data.accessToken);
+      setUsername(nextUsername);
+      setProfile(event.data.user || null);
+      setWaitingForSharity(false);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      if (!isDuplicateToken) {
+        pushActivity("Sharity sign in", "Session received from Sharity");
+      }
+    }
+
+    window.addEventListener("message", receiveSharityAuth);
+    return () => window.removeEventListener("message", receiveSharityAuth);
+  }, []);
+
+  useEffect(() => {
+    if (!waitingForSharity || token) return;
+
+    const requestAuth = () => {
+      if (window.opener) {
+        window.opener.postMessage({ type: "TESLA_READY_FOR_SHARITY_AUTH" }, "*");
+      }
+    };
+
+    requestAuth();
+    const interval = window.setInterval(requestAuth, 600);
+    const timeout = window.setTimeout(() => {
+      setWaitingForSharity(false);
+      window.clearInterval(interval);
+    }, 8000);
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [waitingForSharity, token]);
 
   function normalizeLockState(value) {
     if (value === true) return "Locked";
@@ -59,7 +111,7 @@ function App() {
       const lockToggleCommand = {
         label: isLocked ? "Unlock" : "Lock",
         subtitle: "Doors",
-        path: isLocked ? "/api/tesla/unlock" : "/api/tesla/lock",
+        path: isLocked ? `${TESLA_API_PATH}/unlock` : `${TESLA_API_PATH}/lock`,
         icon: isLocked ? Unlock : Lock,
         group: "Quick Controls",
       };
@@ -75,12 +127,17 @@ function App() {
   useEffect(() => {
     if (!token) return;
     refreshAll();
-    if (username) {
-      fetchUser(username)
-        .then(setProfile)
-        .catch((error) => pushActivity("Profile", error.message, true));
-    }
-  }, [token, username]);
+    fetchMe()
+      .then((data) => {
+        setProfile(data);
+        const nextUsername = data?.username || data?.email || username;
+        if (nextUsername) {
+          localStorage.setItem("teslaUsername", nextUsername);
+          setUsername(nextUsername);
+        }
+      })
+      .catch((error) => pushActivity("Profile", error.message, true));
+  }, [token]);
 
   function pick(source, keys, fallback = "Not available") {
     if (!source || typeof source !== "object") return fallback;
@@ -197,7 +254,7 @@ function App() {
     }
 
     await runCommand(
-      { label: "Own command", path: "/api/tesla/cmd" },
+      { label: "Own command", path: `${TESLA_API_PATH}/cmd` },
       { command }
     );
   }
@@ -205,6 +262,8 @@ function App() {
   function logout() {
     localStorage.removeItem("teslaToken");
     localStorage.removeItem("teslaUsername");
+    localStorage.removeItem("sharityAccessToken");
+    localStorage.removeItem("sharityRefreshToken");
     setToken("");
     setUsername("");
     setVehicle(null);
@@ -217,6 +276,10 @@ function App() {
   const liveState = formatValue(pick(vehicleStatus, ["state", "vehicle_state", "vehicle"], pick(vehicle, ["state"], "Online")));
   const vin = pick(vehicle, ["vin"], "7SAYGDEE1RF129635");
   const modelName = pick(vehicle, ["display_name", "displayName", "model", "vehicle_name"], "2024 Model Y");
+
+  if (!token && waitingForSharity) {
+    return <SharityConnecting />;
+  }
 
   if (!token) {
     return <Login busy={busy === "login"} activity={activity} onSubmit={handleLogin} />;
@@ -323,8 +386,8 @@ function App() {
               <span>Cabin comfort</span>
             </div>
             <div className="temp-grid">
-              <TempControl label="Driver Temp" value={driverTemp} setValue={setDriverTemp} onSubmit={() => runCommand({ label: "Driver temperature", path: "/api/tesla/set/driverTemperature" }, { driverTemp })} />
-              <TempControl label="Passenger Temp" value={passengerTemp} setValue={setPassengerTemp} onSubmit={() => runCommand({ label: "Passenger temperature", path: "/api/tesla/set/passengerTemperature" }, { passengerTemperature: passengerTemp })} />
+              <TempControl label="Driver Temp" value={driverTemp} setValue={setDriverTemp} onSubmit={() => runCommand({ label: "Driver temperature", path: `${TESLA_API_PATH}/set/driverTemperature` }, { driverTemp })} />
+              <TempControl label="Passenger Temp" value={passengerTemp} setValue={setPassengerTemp} onSubmit={() => runCommand({ label: "Passenger temperature", path: `${TESLA_API_PATH}/set/passengerTemperature` }, { passengerTemperature: passengerTemp })} />
             </div>
           </section>
 
@@ -368,6 +431,19 @@ function App() {
         <span>Product by Vinod Balakumar  || © 2026 Vinod Balakumar</span>
       </footer>
     </div>
+  );
+}
+
+function SharityConnecting() {
+  return (
+    <main className="login-screen">
+      <section className="login-panel sharity-connecting">
+        <div className="brand">Vinod Tesla</div>
+        <h1>Opening dashboard</h1>
+        <p>Using your Sharity session.</p>
+        <div className="connecting-bar" />
+      </section>
+    </main>
   );
 }
 

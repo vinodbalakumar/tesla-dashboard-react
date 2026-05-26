@@ -7,6 +7,7 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 ENV API_UPSTREAM=https://vinodbalakumar.com
+ENV AUTH_UPSTREAM=http://host.docker.internal:8083
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html/tesla
 EXPOSE 8080
