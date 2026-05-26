@@ -1,37 +1,111 @@
-# Tesla Control React App
+# Tesla Dashboard UI
 
-React dashboard for the Spring Boot Tesla backend.
+Vite + React dashboard for Tesla vehicle status and commands.
 
-## Local development
+## Runtime Role
+
+This UI can be opened directly or launched from Sharity Admin Portal.
+
+Production route:
+
+```text
+https://vinodbalakumar.com/tesla/
+http://localhost:8080/tesla/
+```
+
+It calls:
+
+```text
+/authorization-server/api/v1/auth/login
+/authorization-server/api/v1/users/me
+/tesla-dashboard-services/api
+```
+
+Tesla backend calls are made with:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+## Local Development
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Open `http://localhost:8080/tesla`.
+Environment examples:
 
-If your backend is not same-origin, create `.env.local`:
-
-```env
+```text
 VITE_API_BASE_URL=http://localhost:8080
 ```
 
-## Docker
+For deployed same-origin Nginx, keep API base empty in the deployment Docker build.
 
-Single frontend container:
+## Authentication
 
-```powershell
-docker build -t tesla-control-webapp .
-docker run -d --name tesla-control-webapp -p 8080:8080 tesla-control-webapp:latest
+Preferred flow:
+
+```text
+Sharity Admin Portal -> Services -> Tesla Dashboard
 ```
 
-The container serves React at `/tesla` on port `8080` and proxies `/auth/*` and `/api/*` to `http://host.docker.internal:8080` by default.
+The admin portal opens Tesla with:
 
-Full stack on one public port:
-
-```powershell
-docker compose up --build -d
+```text
+/tesla/?sharityAuth=1
 ```
 
-In compose, the React app is available at `http://localhost:8080/tesla`, and Nginx proxies backend requests to the Spring Boot service over the Docker network.
+Then it sends the current Sharity JWT to Tesla UI using `postMessage`.
+
+Direct login flow:
+
+```text
+Tesla login form -> /authorization-server/api/v1/auth/login
+```
+
+## API Paths
+
+The UI now uses the real Tesla service context:
+
+```text
+/tesla-dashboard-services/api/vehicles
+/tesla-dashboard-services/api/status
+/tesla-dashboard-services/api/wake
+/tesla-dashboard-services/api/flash-lights
+/tesla-dashboard-services/api/honk
+/tesla-dashboard-services/api/lock
+/tesla-dashboard-services/api/unlock
+/tesla-dashboard-services/api/climate/start
+/tesla-dashboard-services/api/climate/stop
+/tesla-dashboard-services/api/start/charging
+/tesla-dashboard-services/api/stop/charging
+```
+
+## Docker Deployment
+
+Do not deploy from this folder. Deployment files live in:
+
+```text
+C:\Users\HP\projects\deployments
+```
+
+Deploy only this UI:
+
+```powershell
+cd C:\Users\HP\projects\deployments
+docker compose up -d --build tesla-dashboard-ui
+```
+
+Deploy all services:
+
+```powershell
+cd C:\Users\HP\projects\deployments
+docker compose up -d --build
+```
+
+## Useful Commands
+
+```powershell
+npm run build
+```
