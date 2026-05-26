@@ -15,19 +15,19 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import { fetchMe, fetchStatus, fetchVehicle, login, sendCommand } from "./api";
+import { TESLA_API_PATH, fetchMe, fetchStatus, fetchVehicle, login, sendCommand } from "./api";
 import "./styles.css";
 
 const commands = [
-  { label: "Wake", subtitle: "Start session", path: "/api/tesla/wake", icon: Zap, group: "Quick Controls", primary: true },
-  { label: "Flash", subtitle: "Lights", path: "/api/tesla/flash-lights", icon: Lightbulb, group: "Quick Controls" },
-  { label: "Honk", subtitle: "Horn", path: "/api/tesla/honk", icon: Radio, group: "Quick Controls" },
-  { label: "Frunk", subtitle: "Open front", path: "/api/tesla/frunk/open", icon: CarFront, group: "Access" },
-  { label: "Trunk", subtitle: "Open rear", path: "/api/tesla/trunk/open", icon: CarFront, group: "Access" },
-  { label: "Climate", subtitle: "Start", path: "/api/tesla/climate/start", icon: Fan, group: "Access" },
-  { label: "Climate Off", subtitle: "Stop", path: "/api/tesla/climate/stop", icon: Snowflake, group: "Access", danger: true },
-  { label: "Start", subtitle: "Charging", path: "/api/tesla/start/charging", icon: BatteryCharging, group: "Charging", primary: true },
-  { label: "Stop", subtitle: "Charging", path: "/api/tesla/stop/charging", icon: BatteryCharging, group: "Charging", danger: true },
+  { label: "Wake", subtitle: "Start session", path: `${TESLA_API_PATH}/wake`, icon: Zap, group: "Quick Controls", primary: true },
+  { label: "Flash", subtitle: "Lights", path: `${TESLA_API_PATH}/flash-lights`, icon: Lightbulb, group: "Quick Controls" },
+  { label: "Honk", subtitle: "Horn", path: `${TESLA_API_PATH}/honk`, icon: Radio, group: "Quick Controls" },
+  { label: "Frunk", subtitle: "Open front", path: `${TESLA_API_PATH}/frunk/open`, icon: CarFront, group: "Access" },
+  { label: "Trunk", subtitle: "Open rear", path: `${TESLA_API_PATH}/trunk/open`, icon: CarFront, group: "Access" },
+  { label: "Climate", subtitle: "Start", path: `${TESLA_API_PATH}/climate/start`, icon: Fan, group: "Access" },
+  { label: "Climate Off", subtitle: "Stop", path: `${TESLA_API_PATH}/climate/stop`, icon: Snowflake, group: "Access", danger: true },
+  { label: "Start", subtitle: "Charging", path: `${TESLA_API_PATH}/start/charging`, icon: BatteryCharging, group: "Charging", primary: true },
+  { label: "Stop", subtitle: "Charging", path: `${TESLA_API_PATH}/stop/charging`, icon: BatteryCharging, group: "Charging", danger: true },
 ];
 
 function App() {
@@ -111,7 +111,7 @@ function App() {
       const lockToggleCommand = {
         label: isLocked ? "Unlock" : "Lock",
         subtitle: "Doors",
-        path: isLocked ? "/api/tesla/unlock" : "/api/tesla/lock",
+        path: isLocked ? `${TESLA_API_PATH}/unlock` : `${TESLA_API_PATH}/lock`,
         icon: isLocked ? Unlock : Lock,
         group: "Quick Controls",
       };
@@ -254,7 +254,7 @@ function App() {
     }
 
     await runCommand(
-      { label: "Own command", path: "/api/tesla/cmd" },
+      { label: "Own command", path: `${TESLA_API_PATH}/cmd` },
       { command }
     );
   }
@@ -386,8 +386,8 @@ function App() {
               <span>Cabin comfort</span>
             </div>
             <div className="temp-grid">
-              <TempControl label="Driver Temp" value={driverTemp} setValue={setDriverTemp} onSubmit={() => runCommand({ label: "Driver temperature", path: "/api/tesla/set/driverTemperature" }, { driverTemp })} />
-              <TempControl label="Passenger Temp" value={passengerTemp} setValue={setPassengerTemp} onSubmit={() => runCommand({ label: "Passenger temperature", path: "/api/tesla/set/passengerTemperature" }, { passengerTemperature: passengerTemp })} />
+              <TempControl label="Driver Temp" value={driverTemp} setValue={setDriverTemp} onSubmit={() => runCommand({ label: "Driver temperature", path: `${TESLA_API_PATH}/set/driverTemperature` }, { driverTemp })} />
+              <TempControl label="Passenger Temp" value={passengerTemp} setValue={setPassengerTemp} onSubmit={() => runCommand({ label: "Passenger temperature", path: `${TESLA_API_PATH}/set/passengerTemperature` }, { passengerTemperature: passengerTemp })} />
             </div>
           </section>
 
